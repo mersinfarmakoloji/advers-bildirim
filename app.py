@@ -1,6 +1,7 @@
 import streamlit as st
 from docx import Document
-from datetime import date
+from docx.shared import Pt # Yazı boyutu için gerekli
+from datetime import date, datetime
 from io import BytesIO
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -9,17 +10,31 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v14", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v15", page_icon="⚡", layout="centered")
 
-# --- AYARLAR (BURAYI KENDİNE GÖRE DOLDUR) ---
-GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"  # O yeni açtığın bot maili
-ALICI_EMAIL = "mersinfarmakoloji@gmail.com"           # Rapor kime gidecek? (Senin asıl mailin)
-# ŞİFREYİ KODUN İÇİNE YAZMIYORUZ! (Güvenlik için aşağıda anlatacağım yere yazacağız)
+# --- AYARLAR ---
+GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"  
+ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
-st.info("Formu doldurup gönderdiğinizde, rapor otomatik olarak yetkiliye e-posta ile iletilecektir.")
+st.info("Tarihleri '22112025' veya '22.11.2025' şeklinde elle yazabilirsiniz. 'bugün' yazarsanız otomatik tarih atar.")
 
 # --- YARDIMCI FONKSİYONLAR ---
+def tarih_duzelt(girdi):
+    """Kullanıcının girdiği tarihi (22112025 veya bugün) standart formata (22.11.2025) çevirir"""
+    if not girdi: return ""
+    girdi = girdi.strip().lower()
+    
+    if girdi == "bugün" or girdi == "bugun":
+        return date.today().strftime("%d.%m.%Y")
+    
+    # Sadece sayı girildiyse (örn: 22112025)
+    if girdi.isdigit() and len(girdi) == 8:
+        return f"{girdi[:2]}.{girdi[2:4]}.{girdi[4:]}"
+    
+    # Zaten noktalı veya slaşlı girildiyse (örn: 22/11/2025)
+    return girdi.replace("/", ".").replace("-", ".")
+
 def kutu_yap(secim, hedef):
     return "[X]" if secim == hedef else "[ ]"
 
@@ -41,11 +56,19 @@ st.header("A. HASTA & CİDDİYET")
 c1, c2 = st.columns(2)
 with c1:
     ad_soyad = st.text_input("1. Hasta Ad Soyad (Baş Harfler)", placeholder="Örn: A.Y.")
-    dogum_tarihi = st.date_input("2. Doğum Tarihi", min_value=date(1900, 1, 1), max_value=date.today())
+    # TARİH ARTIK TEXT INPUT (Elle Yazılabilir)
+    dogum_tarihi_raw = st.text_input("2. Doğum Tarihi", placeholder="GünAyYıl (Örn: 14122000)")
+    dogum_tarihi = tarih_duzelt(dogum_tarihi_raw)
     
-    bugun = date.today()
-    yas_hesap = bugun.year - dogum_tarihi.year - ((bugun.month, bugun.day) < (dogum_tarihi.month, dogum_tarihi.day))
-    st.caption(f"Hesaplanan Yaş: {yas_hesap}")
+    # Basit yaş hesabı (Eğer tarih doğru formatta girildiyse)
+    try:
+        dt_obj = datetime.strptime(dogum_tarihi, "%d.%m.%Y")
+        bugun = date.today()
+        yas_hesap = bugun.year - dt_obj.year - ((bugun.month, bugun.day) < (dt_obj.month, dt_obj.day))
+        st.caption(f"🧮 Hesaplanan Yaş: {yas_hesap}")
+        yas_str = str(yas_hesap)
+    except:
+        yas_str = "" # Tarih eksikse yaş boş kalsın
 
 with c2:
     cinsiyet = st.radio("3. Cinsiyet", ["Kadın", "Erkek"], horizontal=True)
@@ -77,8 +100,10 @@ if ciddiyet_durumu == "Ciddi":
         st.error("Ölüm Detayları:")
         col_o1, col_o2 = st.columns(2)
         with col_o1:
-            ot = st.date_input("Ölüm Tarihi", max_value=date.today())
-            olum_tarihi_str = ot.strftime("%d.%m.%Y")
+            # ÖLÜM TARİHİ DE ELLE YAZILABİLİR
+            ot_raw = st.text_input("Ölüm Tarihi", placeholder="GünAyYıl")
+            olum_tarihi_str = tarih_duzelt(ot_raw)
+            
             oto = st.radio("Otopsi Yapıldı mı?", ["Evet", "Hayır"], horizontal=True)
             otopsi = "[X] Evet  [ ] Hayır" if oto == "Evet" else "[ ] Evet  [X] Hayır"
         with col_o2:
@@ -91,20 +116,21 @@ for i in range(1, 6):
     with st.expander(f"Reaksiyon {i}", expanded=(i==1)):
         col_r1, col_r2, col_r3 = st.columns([3, 1, 1])
         with col_r1: r_tanim = st.text_input(f"Tanım", key=f"rt{i}")
-        with col_r2: r_bas = st.date_input(f"Başlangıç", key=f"rb{i}", max_value=date.today())
+        with col_r2: 
+            # BAŞLANGIÇ TARİHİ ELLE
+            rb_raw = st.text_input(f"Başlangıç", key=f"rb{i}", placeholder="GünAyYıl")
+            r_bas = tarih_duzelt(rb_raw)
         with col_r3: 
             r_devam = st.checkbox("Devam Ediyor", key=f"rd{i}")
             if r_devam:
                 r_bit = "DEVAM EDİYOR"
             else:
-                r_bit_date = st.date_input(f"Bitiş", key=f"rbit{i}", value=None, max_value=date.today())
-                r_bit = r_bit_date
-
-        if not r_devam and r_bit and r_bas and r_bit < r_bas:
-             st.error("⚠️ HATA: Bitiş tarihi başlangıçtan önce olamaz!")
+                # BİTİŞ TARİHİ ELLE
+                rbit_raw = st.text_input(f"Bitiş", key=f"rbit{i}", placeholder="GünAyYıl")
+                r_bit = tarih_duzelt(rbit_raw)
 
         if r_tanim: 
-            reaksiyonlar.append({"tanim": r_tanim, "bas": r_bas, "bit": r_bit, "devam": r_devam})
+            reaksiyonlar.append({"tanim": r_tanim, "bas": r_bas, "bit": r_bit})
 
 st.subheader("Sonuç Durumu")
 sonuc_secim = st.radio("Sonuç", ["İyileşti/Düzeldi", "İyileşiyor", "Sekel Bıraktı", "Devam Ediyor", "Ölümle Sonuçlandı", "Bilinmiyor"], horizontal=True)
@@ -132,17 +158,18 @@ for i in range(1, 6):
         
         c_i4, c_i5, c_i6 = st.columns([2, 1, 1])
         with c_i4: i_end = st.text_input(f"Endikasyon", key=f"ie{i}")
-        with c_i5: i_bas = st.date_input(f"Başlama", key=f"ib{i}", max_value=date.today())
+        with c_i5: 
+            # İLAÇ BAŞLAMA ELLE
+            ib_raw = st.text_input(f"Başlama", key=f"ib{i}", placeholder="GünAyYıl")
+            i_bas = tarih_duzelt(ib_raw)
         with c_i6: 
             i_devam = st.checkbox("Kullanım Devam Ediyor", key=f"idvm{i}")
             if i_devam:
                 i_bit = "DEVAM EDİYOR"
             else:
-                i_bit_date = st.date_input(f"Kesilme", value=None, key=f"ibit{i}", max_value=date.today())
-                i_bit = i_bit_date
-
-        if not i_devam and i_bit and i_bas and i_bit < i_bas:
-            st.error("⚠️ Kesilme tarihi başlama tarihinden önce olamaz!")
+                # İLAÇ KESİLME ELLE
+                ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
+                i_bit = tarih_duzelt(ibit_raw)
 
         st.markdown(f":blue[**⬇️ {i}. İlaç Değerlendirme Soruları:**]")
         q_col1, q_col2, q_col3, q_col4 = st.columns(4)
@@ -182,12 +209,14 @@ with col_r1:
 with col_r2:
     rapor_tipi = st.radio("10. Rapor Tipi", ["İlk", "Takip"], horizontal=True, index=None)
 
-rapor_tarihi = st.date_input("9. Rapor Tarihi", value=date.today(), max_value=date.today())
+# RAPOR TARİHİ DE OTOMATİK BUGÜN (İstenirse Elle Değişir)
+rt_raw = st.text_input("9. Rapor Tarihi", value=date.today().strftime("%d.%m.%Y"))
+rapor_tarihi = tarih_duzelt(rt_raw)
 
 st.markdown("---")
 submitted = st.button("📤 BİLDİRİMİ GÖNDER", type="primary", use_container_width=True)
 
-# --- KAYIT VE MAİL GÖNDERME ---
+# --- KAYIT VE MAİL ---
 if submitted:
     if not ad_soyad or not ilaclar or not reaksiyonlar:
         st.error("⚠️ Lütfen en az Hasta Adı, Bir Reaksiyon ve Bir İlaç giriniz.")
@@ -196,21 +225,18 @@ if submitted:
             with st.spinner("Rapor oluşturuluyor ve mail gönderiliyor..."):
                 doc = Document("Advers reaksiyon bildirim formu.docx")
                 
-                # --- VERİ HAZIRLIĞI (AYNI) ---
+                # --- VERİ HAZIRLIĞI ---
                 r_list = [{"tanim":"", "bas":"", "bit":""} for _ in range(5)]
                 for idx, r in enumerate(reaksiyonlar):
-                    bitis_str = "DEVAM EDİYOR" if r["devam"] else (r["bit"].strftime("%d.%m.%Y") if r["bit"] else "")
                     if idx < 5:
-                        r_list[idx] = {"tanim": TR_upper(r["tanim"]), "bas": r["bas"].strftime("%d.%m.%Y") if r["bas"] else "", "bit": bitis_str}
+                        r_list[idx] = {"tanim": TR_upper(r["tanim"]), "bas": r["bas"], "bit": r["bit"]}
 
                 i_list = [{"ad":"", "yol":"", "doz":"", "bas":"", "bit":"", "end":"", "s7":"", "s8":"", "s9":"", "s10":""} for _ in range(5)]
                 for idx, ilac in enumerate(ilaclar):
-                    bitis_str = "DEVAM EDİYOR" if ilac["devam"] else (ilac["bit"].strftime("%d.%m.%Y") if ilac["bit"] else "")
                     if idx < 5:
                         i_list[idx] = {
                             "ad": TR_upper(ilac["ad"]), "yol": TR_upper(ilac["yol"]), "doz": TR_lower(ilac["doz"]), 
-                            "end": TR_upper(ilac["end"]), "bas": ilac["bas"].strftime("%d.%m.%Y") if ilac["bas"] else "", 
-                            "bit": bitis_str,
+                            "end": TR_upper(ilac["end"]), "bas": ilac["bas"], "bit": ilac["bit"],
                             "s7": ilac["s7"], "s8": ilac["s8"], "s9": ilac["s9"], "s10": ilac["s10"]
                         }
 
@@ -220,7 +246,7 @@ if submitted:
 
                 veriler = {
                     "{{hasta_adi_soyadi_basharfleri}}": TR_upper(ad_soyad), 
-                    "{{dogum_tarihi}}": dogum_tarihi.strftime("%d.%m.%Y"), "{{yas}}": str(yas_hesap), "{{cinsiyet}}": cinsiyet, "{{boy}}": boy, "{{kilo}}": kilo,
+                    "{{dogum_tarihi}}": dogum_tarihi, "{{yas}}": yas_str, "{{cinsiyet}}": cinsiyet, "{{boy}}": boy, "{{kilo}}": kilo,
                     "{{cid_yok}}": "[X]" if ciddiyet_durumu == "Ciddi Değil" else "[ ]", "{{cid_var}}": "[X]" if ciddiyet_durumu == "Ciddi" else "[ ]",
                     "{{k_olum}}": "[X]" if k_olum_val else "[ ]", "{{k_hayat}}": "[X]" if k_hayat_val else "[ ]",
                     "{{k_hastane}}": "[X]" if k_hastane_val else "[ ]", "{{k_sakatlik}}": "[X]" if k_sakatlik_val else "[ ]",
@@ -241,23 +267,33 @@ if submitted:
                     "{{ilac_5}}": i_list[4]["ad"], "{{yol_5}}": i_list[4]["yol"], "{{doz_5}}": i_list[4]["doz"], "{{ilac_bas_5}}": i_list[4]["bas"], "{{ilac_bit_5}}": i_list[4]["bit"], "{{end_5}}": i_list[4]["end"], "{{s7_5}}": i_list[4]["s7"], "{{s8_5}}": i_list[4]["s8"], "{{s9_5}}": i_list[4]["s9"], "{{s10_5}}": i_list[4]["s10"],
                     "{{bildiren_ad}}": TR_upper(b_ad), "{{bildiren_meslek}}": b_meslek, "{{bildiren_tel}}": b_tel, 
                     "{{bildiren_adres}}": TR_upper(b_adres), "{{bildiren_faks}}": b_faks, "{{bildiren_email}}": b_email,
-                    "{{rapor_tarihi}}": rapor_tarihi.strftime("%d.%m.%Y"),
+                    "{{rapor_tarihi}}": rapor_tarihi,
                     "{{rapor_firma}}": rf_str, "{{rapor_tipi}}": rt_str,
                     "{{es_zamanli}}": TR_upper(es_zamanli)
                 }
 
-                def replace_fast(doc, data):
+                # --- STYLE-PRESERVING DEĞİŞTİRME (FONT BOYUTU DÜZELTME) ---
+                def replace_text_preserving_style(doc, data):
                     for p in doc.paragraphs:
-                        if "{{" in p.text: 
+                        for run in p.runs:
+                            # Yazı boyutunu zorla 7 punto yap (Taşmayı önlemek için)
+                            run.font.size = Pt(7) 
                             for key, value in data.items():
-                                if key in p.text: p.text = p.text.replace(key, str(value))
+                                if key in run.text:
+                                    run.text = run.text.replace(key, str(value))
+                    
                     for table in doc.tables:
                         for row in table.rows:
                             for cell in row.cells:
                                 for p in cell.paragraphs:
-                                    if "{{" in p.text:
+                                    for run in p.runs:
+                                        # Tablo içini de 7 puntoya zorla
+                                        run.font.size = Pt(7)
                                         for key, value in data.items():
-                                            if key in p.text: p.text = p.text.replace(key, str(value))
+                                            if key in run.text:
+                                                run.text = run.text.replace(key, str(value))
+                    
+                    # Temizlik
                     regex = re.compile(r"\{\{.*?\}\}") 
                     for p in doc.paragraphs:
                         if "{{" in p.text: p.text = regex.sub("", p.text)
@@ -267,45 +303,33 @@ if submitted:
                                 for p in cell.paragraphs:
                                     if "{{" in p.text: p.text = regex.sub("", p.text)
 
-                replace_fast(doc, veriler)
+                replace_text_preserving_style(doc, veriler)
                 bio = BytesIO()
                 doc.save(bio)
                 
-                # --- MAİL GÖNDERME KISMI ---
+                # --- MAİL GÖNDERME ---
                 try:
-                    # GMAIL AYARLARI (Şifreyi secrets'dan alacağız)
-                    # Localde çalışırken secrets yoksa hata verebilir, o yüzden try-except
                     GMAIL_SIFRE = st.secrets["GMAIL_PASS"] 
-                    
                     msg = MIMEMultipart()
                     msg['From'] = GONDEREN_EMAIL
                     msg['To'] = ALICI_EMAIL
-                    msg['Subject'] = f"Advers Bildirim Raporu - {TR_upper(ad_soyad)}"
-                    
+                    msg['Subject'] = f"Advers Raporu - {TR_upper(ad_soyad)}"
                     body = f"Sayın Yetkili,\n\n{TR_upper(ad_soyad)} hastasına ait Advers Reaksiyon Bildirim Formu ektedir.\n\nBildiren: {TR_upper(b_ad)}\nTarih: {date.today().strftime('%d.%m.%Y')}"
                     msg.attach(MIMEText(body, 'plain'))
-                    
-                    # Dosyayı ekle
                     part = MIMEBase('application', "octet-stream")
                     part.set_payload(bio.getvalue())
                     encoders.encode_base64(part)
                     part.add_header('Content-Disposition', f'attachment; filename="Advers_{ad_soyad}.docx"')
                     msg.attach(part)
-                    
-                    # Sunucuya bağlan ve gönder
                     server = smtplib.SMTP('smtp.gmail.com', 587)
                     server.starttls()
                     server.login(GONDEREN_EMAIL, GMAIL_SIFRE)
                     server.sendmail(GONDEREN_EMAIL, ALICI_EMAIL, msg.as_string())
                     server.quit()
-                    
-                    st.success(f"✅ Rapor başarıyla oluşturuldu ve {ALICI_EMAIL} adresine gönderildi!")
-                    
+                    st.success(f"✅ Rapor başarıyla {ALICI_EMAIL} adresine gönderildi!")
                 except Exception as mail_err:
-                    st.warning(f"⚠️ Rapor oluşturuldu ancak mail gönderilemedi. (Sebep: {mail_err})")
-                    st.info("💡 Not: Kendi bilgisayarınızda (Local) çalışırken mail atması için 'secrets.toml' ayarı gerekir. Buluta yükleyince çalışacaktır.")
+                    st.warning(f"⚠️ Mail gönderilemedi. (Sebep: {mail_err})")
                 
-                # Her durumda indirme butonu da olsun
                 st.download_button(label="📥 RAPORU İNDİR", data=bio.getvalue(), file_name=f"Advers_{ad_soyad}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 
         except Exception as e:
