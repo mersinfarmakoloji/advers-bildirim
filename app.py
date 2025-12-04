@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v21", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v22", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
 GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
@@ -17,7 +17,6 @@ ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
-# Uyarı Mesajı
 st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
 # --- YARDIMCI FONKSİYONLAR ---
@@ -46,12 +45,10 @@ def tarih_kontrol_ve_duzelt(girdi):
         return "HATA" 
 
 def kutu_yap(secim, hedef):
-    # Eğer seçim yapılmadıysa (None ise) kutu boş kalsın
     if secim is None: return "[ ]"
     return "[X]" if secim == hedef else "[ ]"
 
 def soru_cevapla(cevap):
-    # Eğer kullanıcı seçim yapmadıysa hepsi boş dönsün
     if cevap == "Evet": return "[X] Evet  [ ] Hayır  [ ] Bilinmiyor"
     if cevap == "Hayır": return "[ ] Evet  [X] Hayır  [ ] Bilinmiyor"
     if cevap == "Bilinmiyor": return "[ ] Evet  [ ] Hayır  [X] Bilinmiyor"
@@ -76,7 +73,7 @@ with c1:
     
     yas_str = ""
     if dogum_tarihi == "HATA":
-        st.error("❌ Geçersiz Tarih! (Örn: 32. ay olamaz)")
+        st.error("❌ Geçersiz Tarih!")
         dogum_tarihi = "" 
     elif dogum_tarihi:
         try:
@@ -88,7 +85,6 @@ with c1:
         except: pass
 
 with c2:
-    # DEĞİŞİKLİK: Cinsiyet boş geliyor
     cinsiyet = st.radio("3. Cinsiyet", ["Kadın", "Erkek"], horizontal=True, index=None)
     boy = st.text_input("4. Boy (cm)", placeholder="170")
     kilo = st.text_input("5. Ağırlık (kg)", placeholder="70")
@@ -96,7 +92,6 @@ with c2:
 st.markdown("---")
 st.subheader("⚠️ Ciddiyet Durumu")
 
-# DEĞİŞİKLİK: Ciddiyet boş geliyor
 ciddiyet_durumu = st.radio("Vaka Ciddi mi?", ["Ciddi Değil", "Ciddi"], horizontal=True, index=None)
 
 k_olum_val, k_hayat_val, k_hastane_val, k_sakatlik_val, k_anomali_val, k_tibbi_val = False, False, False, False, False, False
@@ -123,16 +118,11 @@ if ciddiyet_durumu == "Ciddi":
                 st.error("Geçersiz Tarih")
                 olum_tarihi_str = ""
             
-            # DEĞİŞİKLİK: Otopsi seçimi boş geliyor
             oto = st.radio("Otopsi Yapıldı mı?", ["Evet", "Hayır"], horizontal=True, index=None)
             
-            # Otopsi kutucuk mantığı: Seçilmediyse hepsi boş
-            if oto == "Evet":
-                otopsi = "[X] Evet  [ ] Hayır"
-            elif oto == "Hayır":
-                otopsi = "[ ] Evet  [X] Hayır"
-            else:
-                otopsi = "[ ] Evet  [ ] Hayır"
+            if oto == "Evet": otopsi = "[X] Evet  [ ] Hayır"
+            elif oto == "Hayır": otopsi = "[ ] Evet  [X] Hayır"
+            else: otopsi = "[ ] Evet  [ ] Hayır"
 
         with col_o2:
             olum_nedeni = st.text_input("Ölüm Nedeni")
@@ -140,29 +130,67 @@ if ciddiyet_durumu == "Ciddi":
 # --- B. REAKSİYONLAR ---
 st.header("B. ADVERS REAKSİYONLAR")
 reaksiyonlar = []
+
+# İlk reaksiyonun tarihlerini hafızada tutmak için değişkenler
+ilk_r_bas = ""
+ilk_r_bit = ""
+
 for i in range(1, 6):
     with st.expander(f"Reaksiyon {i}", expanded=(i==1)):
         col_r1, col_r2, col_r3 = st.columns([3, 1, 1])
         with col_r1: r_tanim = st.text_input(f"Tanım", key=f"rt{i}")
+        
+        # --- BAŞLANGIÇ TARİHİ ALANI ---
         with col_r2: 
-            rb_raw = st.text_input(f"Başlangıç", key=f"rb{i}", placeholder="GünAyYıl")
-            r_bas = tarih_kontrol_ve_duzelt(rb_raw)
-            if r_bas == "HATA": st.error("Tarih Hatalı"); r_bas=""
+            r_bas = ""
+            use_first_bas = False
+            
+            # 2. ve sonraki satırlar için 'Kopyala' kutucuğu
+            if i > 1:
+                use_first_bas = st.checkbox("1. ile aynı", key=f"r_bas_copy_{i}")
+            
+            if use_first_bas:
+                # Eğer kutu işaretliyse, ilk değeri al ve ekrana bilgi yaz (Input gizlenir)
+                r_bas = ilk_r_bas
+                st.caption(f"🗓️ {ilk_r_bas}")
+            else:
+                # İşaretli değilse veya 1. satırsa normal giriş
+                rb_raw = st.text_input(f"Başlangıç", key=f"rb{i}", placeholder="GünAyYıl")
+                r_bas = tarih_kontrol_ve_duzelt(rb_raw)
+                if r_bas == "HATA": st.error("Tarih Hatalı"); r_bas=""
+            
+            # Eğer 1. satırsak, bu değeri hafızaya at
+            if i == 1: ilk_r_bas = r_bas
 
+        # --- BİTİŞ TARİHİ ALANI ---
         with col_r3: 
             r_devam = st.checkbox("Devam Ediyor", key=f"rd{i}")
             if r_devam:
                 r_bit = "DEVAM EDİYOR"
+                # Devam ediyorsa hafızaya da öyle kaydet
+                if i == 1: ilk_r_bit = "DEVAM EDİYOR"
             else:
-                rbit_raw = st.text_input(f"Bitiş", key=f"rbit{i}", placeholder="GünAyYıl")
-                r_bit = tarih_kontrol_ve_duzelt(rbit_raw)
-                if r_bit == "HATA": st.error("Tarih Hatalı"); r_bit=""
+                r_bit = ""
+                use_first_bit = False
+                
+                # 2. ve sonrası için 'Kopyala' kutucuğu
+                if i > 1:
+                    use_first_bit = st.checkbox("1. ile aynı", key=f"r_bit_copy_{i}")
+                
+                if use_first_bit:
+                    r_bit = ilk_r_bit
+                    st.caption(f"🗓️ {ilk_r_bit}")
+                else:
+                    rbit_raw = st.text_input(f"Bitiş", key=f"rbit{i}", placeholder="GünAyYıl")
+                    r_bit = tarih_kontrol_ve_duzelt(rbit_raw)
+                    if r_bit == "HATA": st.error("Tarih Hatalı"); r_bit=""
+                
+                if i == 1: ilk_r_bit = r_bit
 
         if r_tanim: 
             reaksiyonlar.append({"tanim": r_tanim, "bas": r_bas, "bit": r_bit, "devam": r_devam})
 
 st.subheader("Sonuç Durumu")
-# DEĞİŞİKLİK: Sonuç durumu boş geliyor
 sonuc_secim = st.radio("Sonuç", ["İyileşti/Düzeldi", "İyileşiyor", "Sekel Bıraktı", "Devam Ediyor", "Ölümle Sonuçlandı", "Bilinmiyor"], horizontal=True, index=None)
 
 lab_bulgu = st.text_area("3. Laboratuvar Bulguları (Tarihleriyle birlikte)", height=68)
@@ -172,6 +200,10 @@ tibbi_oyku = st.text_area("4. Tıbbi Öykü / Eş Zamanlı Hastalıklar", height
 # --- C. İLAÇLAR ---
 st.header("C. ŞÜPHELENİLEN İLAÇLAR")
 ilaclar = []
+
+# İlk ilacın tarihlerini hafızada tutmak için değişkenler
+ilk_i_bas = ""
+ilk_i_bit = ""
 
 for i in range(1, 6):
     with st.expander(f"💊 İlaç {i}", expanded=(i==1)):
@@ -189,22 +221,49 @@ for i in range(1, 6):
         
         c_i4, c_i5, c_i6 = st.columns([2, 1, 1])
         with c_i4: i_end = st.text_input(f"Endikasyon", key=f"ie{i}")
+        
+        # --- İLAÇ BAŞLAMA TARİHİ ---
         with c_i5: 
-            ib_raw = st.text_input(f"Başlama", key=f"ib{i}", placeholder="GünAyYıl")
-            i_bas = tarih_kontrol_ve_duzelt(ib_raw)
-            if i_bas == "HATA": st.error("Geçersiz Tarih"); i_bas=""
+            i_bas = ""
+            use_first_ibase = False
+            
+            if i > 1:
+                use_first_ibase = st.checkbox("1. ile aynı", key=f"i_bas_copy_{i}")
+            
+            if use_first_ibase:
+                i_bas = ilk_i_bas
+                st.caption(f"🗓️ {ilk_i_bas}")
+            else:
+                ib_raw = st.text_input(f"Başlama", key=f"ib{i}", placeholder="GünAyYıl")
+                i_bas = tarih_kontrol_ve_duzelt(ib_raw)
+                if i_bas == "HATA": st.error("Geçersiz Tarih"); i_bas=""
+            
+            if i == 1: ilk_i_bas = i_bas
 
+        # --- İLAÇ KESİLME TARİHİ ---
         with c_i6: 
             i_devam = st.checkbox("Kullanım Devam Ediyor", key=f"idvm{i}")
             if i_devam:
                 i_bit = "DEVAM EDİYOR"
+                if i == 1: ilk_i_bit = "DEVAM EDİYOR"
             else:
-                ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
-                i_bit = tarih_kontrol_ve_duzelt(ibit_raw)
-                if i_bit == "HATA": st.error("Geçersiz Tarih"); i_bit=""
+                i_bit = ""
+                use_first_ibit = False
+                
+                if i > 1:
+                    use_first_ibit = st.checkbox("1. ile aynı", key=f"i_bit_copy_{i}")
+                
+                if use_first_ibit:
+                    i_bit = ilk_i_bit
+                    st.caption(f"🗓️ {ilk_i_bit}")
+                else:
+                    ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
+                    i_bit = tarih_kontrol_ve_duzelt(ibit_raw)
+                    if i_bit == "HATA": st.error("Geçersiz Tarih"); i_bit=""
+                
+                if i == 1: ilk_i_bit = i_bit
 
         st.markdown(f":blue[**⬇️ {i}. İlaç Değerlendirme Soruları:**]")
-        # DEĞİŞİKLİK: Tüm soru cevapları boş (index=None) geliyor
         q7 = st.radio("7. İlaç Kesildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q7_{i}", horizontal=True, index=None)
         q8 = st.radio("8. Reaksiyon azaldı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q8_{i}", horizontal=True, index=None)
         q9 = st.radio("9. Yeniden verildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q9_{i}", horizontal=True, index=None)
@@ -249,22 +308,14 @@ submitted = st.button("📤 BİLDİRİMİ GÖNDER", type="primary", use_containe
 
 # --- KAYIT VE MAİL ---
 if submitted:
-    # --- EKSİK KONTROL LİSTESİ ---
     eksik_alanlar = []
 
-    if not ad_soyad:
-        eksik_alanlar.append("Hasta Adı Soyadı")
-    if not ilaclar:
-        eksik_alanlar.append("En az bir İlaç Adı")
-    if not reaksiyonlar:
-        eksik_alanlar.append("En az bir Reaksiyon Tanımı")
-    if not b_ad:
-        eksik_alanlar.append("Bildirimi Yapan Kişi Adı")
-    if not b_tel:
-        eksik_alanlar.append("Bildirimi Yapan Telefon No")
-    
-    if not b_meslek:
-        eksik_alanlar.append("Meslek Seçimi")
+    if not ad_soyad: eksik_alanlar.append("Hasta Adı Soyadı")
+    if not ilaclar: eksik_alanlar.append("En az bir İlaç Adı")
+    if not reaksiyonlar: eksik_alanlar.append("En az bir Reaksiyon Tanımı")
+    if not b_ad: eksik_alanlar.append("Bildirimi Yapan Kişi Adı")
+    if not b_tel: eksik_alanlar.append("Bildirimi Yapan Telefon No")
+    if not b_meslek: eksik_alanlar.append("Meslek Seçimi")
 
     if len(eksik_alanlar) > 0:
         st.error("⚠️ GÖNDERİM BAŞARISIZ! Lütfen aşağıdaki eksik alanları doldurunuz:")
@@ -303,7 +354,7 @@ if submitted:
                 veriler = {
                     "{{hasta_adi_soyadi_basharfleri}}": TR_upper(ad_soyad), 
                     "{{dogum_tarihi}}": dogum_tarihi, "{{yas}}": yas_str, 
-                    "{{cinsiyet}}": cinsiyet if cinsiyet else "", # Cinsiyet boşsa boş bas
+                    "{{cinsiyet}}": cinsiyet if cinsiyet else "",
                     "{{boy}}": boy, "{{kilo}}": kilo,
                     "{{cid_yok}}": "[X]" if ciddiyet_durumu == "Ciddi Değil" else "[ ]", "{{cid_var}}": "[X]" if ciddiyet_durumu == "Ciddi" else "[ ]",
                     "{{k_olum}}": "[X]" if k_olum_val else "[ ]", "{{k_hayat}}": "[X]" if k_hayat_val else "[ ]",
