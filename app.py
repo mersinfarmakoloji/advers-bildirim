@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v20", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v21", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
 GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
@@ -17,7 +17,7 @@ ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
-# İstenilen Uyarı Mesajı
+# Uyarı Mesajı
 st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
 # --- YARDIMCI FONKSİYONLAR ---
@@ -46,12 +46,16 @@ def tarih_kontrol_ve_duzelt(girdi):
         return "HATA" 
 
 def kutu_yap(secim, hedef):
+    # Eğer seçim yapılmadıysa (None ise) kutu boş kalsın
+    if secim is None: return "[ ]"
     return "[X]" if secim == hedef else "[ ]"
 
 def soru_cevapla(cevap):
+    # Eğer kullanıcı seçim yapmadıysa hepsi boş dönsün
     if cevap == "Evet": return "[X] Evet  [ ] Hayır  [ ] Bilinmiyor"
     if cevap == "Hayır": return "[ ] Evet  [X] Hayır  [ ] Bilinmiyor"
-    return "[ ] Evet  [ ] Hayır  [X] Bilinmiyor"
+    if cevap == "Bilinmiyor": return "[ ] Evet  [ ] Hayır  [X] Bilinmiyor"
+    return "[ ] Evet  [ ] Hayır  [ ] Bilinmiyor"
 
 def TR_upper(text):
     if text: return text.replace("i", "İ").upper()
@@ -84,14 +88,16 @@ with c1:
         except: pass
 
 with c2:
-    cinsiyet = st.radio("3. Cinsiyet", ["Kadın", "Erkek"], horizontal=True)
+    # DEĞİŞİKLİK: Cinsiyet boş geliyor
+    cinsiyet = st.radio("3. Cinsiyet", ["Kadın", "Erkek"], horizontal=True, index=None)
     boy = st.text_input("4. Boy (cm)", placeholder="170")
     kilo = st.text_input("5. Ağırlık (kg)", placeholder="70")
 
 st.markdown("---")
 st.subheader("⚠️ Ciddiyet Durumu")
 
-ciddiyet_durumu = st.radio("Vaka Ciddi mi?", ["Ciddi Değil", "Ciddi"], horizontal=True)
+# DEĞİŞİKLİK: Ciddiyet boş geliyor
+ciddiyet_durumu = st.radio("Vaka Ciddi mi?", ["Ciddi Değil", "Ciddi"], horizontal=True, index=None)
 
 k_olum_val, k_hayat_val, k_hastane_val, k_sakatlik_val, k_anomali_val, k_tibbi_val = False, False, False, False, False, False
 olum_tarihi_str, olum_nedeni, otopsi = "", "", "[ ] Evet  [ ] Hayır"
@@ -117,8 +123,17 @@ if ciddiyet_durumu == "Ciddi":
                 st.error("Geçersiz Tarih")
                 olum_tarihi_str = ""
             
-            oto = st.radio("Otopsi Yapıldı mı?", ["Evet", "Hayır"], horizontal=True)
-            otopsi = "[X] Evet  [ ] Hayır" if oto == "Evet" else "[ ] Evet  [X] Hayır"
+            # DEĞİŞİKLİK: Otopsi seçimi boş geliyor
+            oto = st.radio("Otopsi Yapıldı mı?", ["Evet", "Hayır"], horizontal=True, index=None)
+            
+            # Otopsi kutucuk mantığı: Seçilmediyse hepsi boş
+            if oto == "Evet":
+                otopsi = "[X] Evet  [ ] Hayır"
+            elif oto == "Hayır":
+                otopsi = "[ ] Evet  [X] Hayır"
+            else:
+                otopsi = "[ ] Evet  [ ] Hayır"
+
         with col_o2:
             olum_nedeni = st.text_input("Ölüm Nedeni")
 
@@ -147,7 +162,9 @@ for i in range(1, 6):
             reaksiyonlar.append({"tanim": r_tanim, "bas": r_bas, "bit": r_bit, "devam": r_devam})
 
 st.subheader("Sonuç Durumu")
-sonuc_secim = st.radio("Sonuç", ["İyileşti/Düzeldi", "İyileşiyor", "Sekel Bıraktı", "Devam Ediyor", "Ölümle Sonuçlandı", "Bilinmiyor"], horizontal=True)
+# DEĞİŞİKLİK: Sonuç durumu boş geliyor
+sonuc_secim = st.radio("Sonuç", ["İyileşti/Düzeldi", "İyileşiyor", "Sekel Bıraktı", "Devam Ediyor", "Ölümle Sonuçlandı", "Bilinmiyor"], horizontal=True, index=None)
+
 lab_bulgu = st.text_area("3. Laboratuvar Bulguları (Tarihleriyle birlikte)", height=68)
 st.info("ℹ️ **Tıbbi Öykü:** Allerji, gebelik, sigara/alkol, kronik hastalıklar vb.")
 tibbi_oyku = st.text_area("4. Tıbbi Öykü / Eş Zamanlı Hastalıklar", height=68)
@@ -187,10 +204,11 @@ for i in range(1, 6):
                 if i_bit == "HATA": st.error("Geçersiz Tarih"); i_bit=""
 
         st.markdown(f":blue[**⬇️ {i}. İlaç Değerlendirme Soruları:**]")
-        q7 = st.radio("7. İlaç Kesildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q7_{i}", horizontal=True)
-        q8 = st.radio("8. Reaksiyon azaldı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q8_{i}", horizontal=True)
-        q9 = st.radio("9. Yeniden verildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q9_{i}", horizontal=True)
-        q10 = st.radio("10. Tekrarladı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q10_{i}", horizontal=True)
+        # DEĞİŞİKLİK: Tüm soru cevapları boş (index=None) geliyor
+        q7 = st.radio("7. İlaç Kesildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q7_{i}", horizontal=True, index=None)
+        q8 = st.radio("8. Reaksiyon azaldı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q8_{i}", horizontal=True, index=None)
+        q9 = st.radio("9. Yeniden verildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q9_{i}", horizontal=True, index=None)
+        q10 = st.radio("10. Tekrarladı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q10_{i}", horizontal=True, index=None)
 
         if i_adi: 
             ilaclar.append({
@@ -212,10 +230,7 @@ with c_d1:
     b_tel = st.text_input("3. Tel No")
     b_faks = st.text_input("5. Faks")
 with c_d2:
-    # DEĞİŞİKLİK 1: Meslek seçimi Radio butona çevrildi (Yan yana) ve varsayılan boş (index=None)
     b_meslek = st.radio("2. Meslek", ["Doktor", "Eczacı", "Hemşire", "Diğer"], horizontal=True, index=None)
-    
-    # DEĞİŞİKLİK 2: Adres başlığına 'Bölüm' eklendi
     b_adres = st.text_area("4. Adres ve Bölüm", value="Mersin Üniversitesi Tıp Fakültesi", height=100)
     b_email = st.text_input("6. E-posta")
 
@@ -248,17 +263,14 @@ if submitted:
     if not b_tel:
         eksik_alanlar.append("Bildirimi Yapan Telefon No")
     
-    # Meslek seçimi artık boş gelebildiği için kontrol ekledik
     if not b_meslek:
         eksik_alanlar.append("Meslek Seçimi")
 
-    # Eksik varsa listele ve dur
     if len(eksik_alanlar) > 0:
         st.error("⚠️ GÖNDERİM BAŞARISIZ! Lütfen aşağıdaki eksik alanları doldurunuz:")
         for eksik in eksik_alanlar:
             st.warning(f"❌ {eksik} eksik.")
     
-    # Eksik yoksa (else) işleme devam et
     else:
         try:
             with st.spinner("Rapor oluşturuluyor ve mail gönderiliyor..."):
@@ -281,13 +293,18 @@ if submitted:
                             "s7": ilac["s7"], "s8": ilac["s8"], "s9": ilac["s9"], "s10": ilac["s10"]
                         }
 
-                def radio_kutu(secim, hedef): return "[X]" if secim == hedef else "[ ]"
+                def radio_kutu(secim, hedef): 
+                    if secim is None: return "[ ]"
+                    return "[X]" if secim == hedef else "[ ]"
+
                 rf_str = "[ ] Evet [ ] Hayır [ ] Bilinmiyor" if rapor_firma is None else f"{radio_kutu(rapor_firma, 'Evet')} Evet  {radio_kutu(rapor_firma, 'Hayır')} Hayır  {radio_kutu(rapor_firma, 'Bilinmiyor')} Bilinmiyor"
                 rt_str = "[ ] İlk [ ] Takip" if rapor_tipi is None else f"{radio_kutu(rapor_tipi, 'İlk')} İlk  {radio_kutu(rapor_tipi, 'Takip')} Takip"
 
                 veriler = {
                     "{{hasta_adi_soyadi_basharfleri}}": TR_upper(ad_soyad), 
-                    "{{dogum_tarihi}}": dogum_tarihi, "{{yas}}": yas_str, "{{cinsiyet}}": cinsiyet, "{{boy}}": boy, "{{kilo}}": kilo,
+                    "{{dogum_tarihi}}": dogum_tarihi, "{{yas}}": yas_str, 
+                    "{{cinsiyet}}": cinsiyet if cinsiyet else "", # Cinsiyet boşsa boş bas
+                    "{{boy}}": boy, "{{kilo}}": kilo,
                     "{{cid_yok}}": "[X]" if ciddiyet_durumu == "Ciddi Değil" else "[ ]", "{{cid_var}}": "[X]" if ciddiyet_durumu == "Ciddi" else "[ ]",
                     "{{k_olum}}": "[X]" if k_olum_val else "[ ]", "{{k_hayat}}": "[X]" if k_hayat_val else "[ ]",
                     "{{k_hastane}}": "[X]" if k_hastane_val else "[ ]", "{{k_sakatlik}}": "[X]" if k_sakatlik_val else "[ ]",
@@ -306,7 +323,8 @@ if submitted:
                     "{{ilac_3}}": i_list[2]["ad"], "{{yol_3}}": i_list[2]["yol"], "{{doz_3}}": i_list[2]["doz"], "{{ilac_bas_3}}": i_list[2]["bas"], "{{ilac_bit_3}}": i_list[2]["bit"], "{{end_3}}": i_list[2]["end"], "{{s7_3}}": i_list[2]["s7"], "{{s8_3}}": i_list[2]["s8"], "{{s9_3}}": i_list[2]["s9"], "{{s10_3}}": i_list[2]["s10"],
                     "{{ilac_4}}": i_list[3]["ad"], "{{yol_4}}": i_list[3]["yol"], "{{doz_4}}": i_list[3]["doz"], "{{ilac_bas_4}}": i_list[3]["bas"], "{{ilac_bit_4}}": i_list[3]["bit"], "{{end_4}}": i_list[3]["end"], "{{s7_4}}": i_list[3]["s7"], "{{s8_4}}": i_list[3]["s8"], "{{s9_4}}": i_list[3]["s9"], "{{s10_4}}": i_list[3]["s10"],
                     "{{ilac_5}}": i_list[4]["ad"], "{{yol_5}}": i_list[4]["yol"], "{{doz_5}}": i_list[4]["doz"], "{{ilac_bas_5}}": i_list[4]["bas"], "{{ilac_bit_5}}": i_list[4]["bit"], "{{end_5}}": i_list[4]["end"], "{{s7_5}}": i_list[4]["s7"], "{{s8_5}}": i_list[4]["s8"], "{{s9_5}}": i_list[4]["s9"], "{{s10_5}}": i_list[4]["s10"],
-                    "{{bildiren_ad}}": TR_upper(b_ad), "{{bildiren_meslek}}": b_meslek, "{{bildiren_tel}}": b_tel, 
+                    "{{bildiren_ad}}": TR_upper(b_ad), "{{bildiren_meslek}}": b_meslek if b_meslek else "", 
+                    "{{bildiren_tel}}": b_tel, 
                     "{{bildiren_adres}}": TR_upper(b_adres), "{{bildiren_faks}}": b_faks, "{{bildiren_email}}": b_email,
                     "{{rapor_tarihi}}": rapor_tarihi,
                     "{{rapor_firma}}": rf_str, "{{rapor_tipi}}": rt_str,
