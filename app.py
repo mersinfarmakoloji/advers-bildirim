@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v22", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v23", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
 GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
@@ -137,7 +137,10 @@ ilk_r_bit = ""
 
 for i in range(1, 6):
     with st.expander(f"Reaksiyon {i}", expanded=(i==1)):
-        col_r1, col_r2, col_r3 = st.columns([3, 1, 1])
+        # GÜNCELLEME: Sütun oranlarını [3, 1, 1] yerine [2.5, 1.25, 1.25] yaptım.
+        # Böylece tarih kutuları genişledi, yazılar sığacak.
+        col_r1, col_r2, col_r3 = st.columns([2.5, 1.25, 1.25])
+        
         with col_r1: r_tanim = st.text_input(f"Tanım", key=f"rt{i}")
         
         # --- BAŞLANGIÇ TARİHİ ALANI ---
@@ -145,21 +148,18 @@ for i in range(1, 6):
             r_bas = ""
             use_first_bas = False
             
-            # 2. ve sonraki satırlar için 'Kopyala' kutucuğu
             if i > 1:
-                use_first_bas = st.checkbox("1. ile aynı", key=f"r_bas_copy_{i}")
+                # Yazıyı 'İlk tarihle aynı' olarak güncelledim
+                use_first_bas = st.checkbox("İlk tarihle aynı", key=f"r_bas_copy_{i}")
             
             if use_first_bas:
-                # Eğer kutu işaretliyse, ilk değeri al ve ekrana bilgi yaz (Input gizlenir)
                 r_bas = ilk_r_bas
                 st.caption(f"🗓️ {ilk_r_bas}")
             else:
-                # İşaretli değilse veya 1. satırsa normal giriş
                 rb_raw = st.text_input(f"Başlangıç", key=f"rb{i}", placeholder="GünAyYıl")
                 r_bas = tarih_kontrol_ve_duzelt(rb_raw)
-                if r_bas == "HATA": st.error("Tarih Hatalı"); r_bas=""
+                if r_bas == "HATA": st.error("Hatalı"); r_bas=""
             
-            # Eğer 1. satırsak, bu değeri hafızaya at
             if i == 1: ilk_r_bas = r_bas
 
         # --- BİTİŞ TARİHİ ALANI ---
@@ -167,15 +167,13 @@ for i in range(1, 6):
             r_devam = st.checkbox("Devam Ediyor", key=f"rd{i}")
             if r_devam:
                 r_bit = "DEVAM EDİYOR"
-                # Devam ediyorsa hafızaya da öyle kaydet
                 if i == 1: ilk_r_bit = "DEVAM EDİYOR"
             else:
                 r_bit = ""
                 use_first_bit = False
                 
-                # 2. ve sonrası için 'Kopyala' kutucuğu
                 if i > 1:
-                    use_first_bit = st.checkbox("1. ile aynı", key=f"r_bit_copy_{i}")
+                    use_first_bit = st.checkbox("İlk tarihle aynı", key=f"r_bit_copy_{i}")
                 
                 if use_first_bit:
                     r_bit = ilk_r_bit
@@ -183,7 +181,7 @@ for i in range(1, 6):
                 else:
                     rbit_raw = st.text_input(f"Bitiş", key=f"rbit{i}", placeholder="GünAyYıl")
                     r_bit = tarih_kontrol_ve_duzelt(rbit_raw)
-                    if r_bit == "HATA": st.error("Tarih Hatalı"); r_bit=""
+                    if r_bit == "HATA": st.error("Hatalı"); r_bit=""
                 
                 if i == 1: ilk_r_bit = r_bit
 
@@ -201,7 +199,6 @@ tibbi_oyku = st.text_area("4. Tıbbi Öykü / Eş Zamanlı Hastalıklar", height
 st.header("C. ŞÜPHELENİLEN İLAÇLAR")
 ilaclar = []
 
-# İlk ilacın tarihlerini hafızada tutmak için değişkenler
 ilk_i_bas = ""
 ilk_i_bit = ""
 
@@ -228,7 +225,7 @@ for i in range(1, 6):
             use_first_ibase = False
             
             if i > 1:
-                use_first_ibase = st.checkbox("1. ile aynı", key=f"i_bas_copy_{i}")
+                use_first_ibase = st.checkbox("İlk tarihle aynı", key=f"i_bas_copy_{i}")
             
             if use_first_ibase:
                 i_bas = ilk_i_bas
@@ -236,7 +233,7 @@ for i in range(1, 6):
             else:
                 ib_raw = st.text_input(f"Başlama", key=f"ib{i}", placeholder="GünAyYıl")
                 i_bas = tarih_kontrol_ve_duzelt(ib_raw)
-                if i_bas == "HATA": st.error("Geçersiz Tarih"); i_bas=""
+                if i_bas == "HATA": st.error("Hatalı"); i_bas=""
             
             if i == 1: ilk_i_bas = i_bas
 
@@ -251,7 +248,7 @@ for i in range(1, 6):
                 use_first_ibit = False
                 
                 if i > 1:
-                    use_first_ibit = st.checkbox("1. ile aynı", key=f"i_bit_copy_{i}")
+                    use_first_ibit = st.checkbox("İlk tarihle aynı", key=f"i_bit_copy_{i}")
                 
                 if use_first_ibit:
                     i_bit = ilk_i_bit
@@ -259,7 +256,7 @@ for i in range(1, 6):
                 else:
                     ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
                     i_bit = tarih_kontrol_ve_duzelt(ibit_raw)
-                    if i_bit == "HATA": st.error("Geçersiz Tarih"); i_bit=""
+                    if i_bit == "HATA": st.error("Hatalı"); i_bit=""
                 
                 if i == 1: ilk_i_bit = i_bit
 
