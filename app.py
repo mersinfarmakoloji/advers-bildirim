@@ -9,16 +9,27 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v17", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v18", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
-GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"  
-ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
+GONDEREN_EMAIL = "senin.bot.adresin@gmail.com"  # BURAYI KENDİ BOT MAİLİNLE DEĞİŞTİR
+ALICI_EMAIL = "celeb@mersin.edu.tr"           # BURAYI KENDİ MAİLİNLE DEĞİŞTİR
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
-st.info("Formu doldurunuz. İlaç soruları artık tek tıkla seçilebilir.")
+st.info("Tarihleri '01012020' veya 'bugün' şeklinde girebilirsiniz.")
 
 # --- YARDIMCI FONKSİYONLAR ---
+def tr_to_en_filename(text):
+    """Dosya ismindeki Türkçe karakterleri İngilizceye çevirir (Mail hatasını önler)"""
+    if not text: return "Rapor"
+    mapping = {
+        'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'I': 'I', 'İ': 'I',
+        'ö': 'o', 'Ö': 'O', 'ş': 's', 'Ş': 'S', 'ü': 'u', 'Ü': 'U'
+    }
+    for k, v in mapping.items():
+        text = text.replace(k, v)
+    return text
+
 def tarih_duzelt(girdi):
     if not girdi: return ""
     girdi = girdi.strip().lower()
@@ -58,7 +69,7 @@ with c1:
             dt_obj = datetime.strptime(dogum_tarihi, "%d.%m.%Y")
             bugun = date.today()
             yas_hesap = bugun.year - dt_obj.year - ((bugun.month, bugun.day) < (dt_obj.month, dt_obj.day))
-            st.success(f"📅 Algılandı: {dogum_tarihi} (Yaş: {yas_hesap})")
+            st.caption(f"🧮 Hesaplanan Yaş: {yas_hesap}")
             yas_str = str(yas_hesap)
         except: pass
 
@@ -155,9 +166,7 @@ for i in range(1, 6):
                 ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
                 i_bit = tarih_duzelt(ibit_raw)
 
-        # HIZLI BUTONLAR (RADIO)
         st.markdown(f":blue[**⬇️ {i}. İlaç Değerlendirme Soruları:**]")
-        
         q7 = st.radio("7. İlaç Kesildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q7_{i}", horizontal=True)
         q8 = st.radio("8. Reaksiyon azaldı mı?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q8_{i}", horizontal=True)
         q9 = st.radio("9. Yeniden verildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q9_{i}", horizontal=True)
@@ -283,19 +292,23 @@ if submitted:
                 bio = BytesIO()
                 doc.save(bio)
                 
-                # Mail
+                # --- MAİL GÖNDERME ---
                 try:
                     GMAIL_SIFRE = st.secrets["GMAIL_PASS"] 
                     msg = MIMEMultipart()
                     msg['From'] = GONDEREN_EMAIL
                     msg['To'] = ALICI_EMAIL
+                    
+                    # DOSYA ADINI TÜRKÇE KARAKTERDEN ARINDIR (HATA ÇÖZÜMÜ)
+                    clean_filename = f"Advers_{tr_to_en_filename(ad_soyad)}.docx"
+                    
                     msg['Subject'] = f"Advers Raporu - {TR_upper(ad_soyad)}"
                     body = f"Sayın Yetkili,\n\n{TR_upper(ad_soyad)} hastasına ait rapor ektedir."
                     msg.attach(MIMEText(body, 'plain'))
                     part = MIMEBase('application', "octet-stream")
                     part.set_payload(bio.getvalue())
                     encoders.encode_base64(part)
-                    part.add_header('Content-Disposition', f'attachment; filename="Advers_{ad_soyad}.docx"')
+                    part.add_header('Content-Disposition', f'attachment; filename="{clean_filename}"')
                     msg.attach(part)
                     server = smtplib.SMTP('smtp.gmail.com', 587)
                     server.starttls()
