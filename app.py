@@ -9,14 +9,19 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v18", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v19", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
-GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"  # BURAYI KENDİ BOT MAİLİNLE DEĞİŞTİR
-ALICI_EMAIL = "mersinfarmakoloji@gmail.com"           # BURAYI KENDİ MAİLİNLE DEĞİŞTİR
+GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
+ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
+
+# Not: GMAIL_PASS şifresini Streamlit Cloud ayarlarından (Secrets) çekmeye devam ediyoruz.
+# Eğer yerel bilgisayarda çalıştıracaksan, secrets.toml dosyasına eklemelisin.
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
-st.info("Tarihleri '01012020' veya 'bugün' şeklinde girebilirsiniz.")
+
+# İstenilen Yeni Uyarı Mesajı
+st.warning("⚠️ Lütfen formu eksiksiz doldurunuz. Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
 # --- YARDIMCI FONKSİYONLAR ---
 def tr_to_en_filename(text):
@@ -30,14 +35,31 @@ def tr_to_en_filename(text):
         text = text.replace(k, v)
     return text
 
-def tarih_duzelt(girdi):
-    if not girdi: return ""
+def tarih_kontrol_ve_duzelt(girdi):
+    """Girdiyi alır, geçerli bir tarih mi bakar, formatlar. Geçersizse None döner."""
+    if not girdi: return None
+    
     girdi = girdi.strip().lower()
+    
+    # Bugün kontrolü
     if girdi in ["bugün", "bugun", "today"]:
         return date.today().strftime("%d.%m.%Y")
+    
+    # Sadece sayı girildiyse (Örn: 12112025)
     if girdi.isdigit() and len(girdi) == 8:
-        return f"{girdi[:2]}.{girdi[2:4]}.{girdi[4:]}"
-    return girdi.replace("/", ".").replace("-", ".")
+        girdi = f"{girdi[:2]}.{girdi[2:4]}.{girdi[4:]}"
+    
+    # Ayraçları düzelt
+    girdi = girdi.replace("/", ".").replace("-", ".")
+    
+    # GEÇERLİLİK KONTROLÜ (32. gün veya 13. ay var mı?)
+    try:
+        # Python'un tarih kütüphanesine "bunu tarih olarak oku" diyoruz.
+        # Eğer tarih mantıksızsa (45.20.2023 gibi) burada hata verir ve 'except'e düşer.
+        datetime.strptime(girdi, "%d.%m.%Y")
+        return girdi # Hata yoksa tarihi döndür
+    except ValueError:
+        return "HATA" # Geçersiz tarih
 
 def kutu_yap(secim, hedef):
     return "[X]" if secim == hedef else "[ ]"
@@ -60,16 +82,22 @@ st.header("A. HASTAYA AİT BİLGİLER")
 c1, c2 = st.columns(2)
 with c1:
     ad_soyad = st.text_input("1. Hasta Ad Soyad (Baş Harfler)", placeholder="Örn: A.Y.")
-    dogum_tarihi_raw = st.text_input("2. Doğum Tarihi", placeholder="GünAyYıl")
-    dogum_tarihi = tarih_duzelt(dogum_tarihi_raw)
+    
+    # Tarih Girdisi ve Kontrolü
+    dogum_tarihi_raw = st.text_input("2. Doğum Tarihi", placeholder="GünAyYıl (Örn: 01011980)")
+    dogum_tarihi = tarih_kontrol_ve_duzelt(dogum_tarihi_raw)
     
     yas_str = ""
-    if dogum_tarihi:
+    if dogum_tarihi == "HATA":
+        st.error("❌ Geçersiz Tarih! (Örn: 32. ay olamaz)")
+        dogum_tarihi = "" # Hatalı tarihi rapora yazma
+    elif dogum_tarihi:
+        # Tarih geçerliyse ve düzgünse yaşı hesapla
         try:
             dt_obj = datetime.strptime(dogum_tarihi, "%d.%m.%Y")
             bugun = date.today()
             yas_hesap = bugun.year - dt_obj.year - ((bugun.month, bugun.day) < (dt_obj.month, dt_obj.day))
-            st.caption(f"🧮 Hesaplanan Yaş: {yas_hesap}")
+            st.success(f"📅 Algılandı: {dogum_tarihi} (Yaş: {yas_hesap})")
             yas_str = str(yas_hesap)
         except: pass
 
@@ -102,7 +130,11 @@ if ciddiyet_durumu == "Ciddi":
         col_o1, col_o2 = st.columns(2)
         with col_o1:
             ot_raw = st.text_input("Ölüm Tarihi", placeholder="GünAyYıl")
-            olum_tarihi_str = tarih_duzelt(ot_raw)
+            olum_tarihi_str = tarih_kontrol_ve_duzelt(ot_raw)
+            if olum_tarihi_str == "HATA": 
+                st.error("Geçersiz Tarih")
+                olum_tarihi_str = ""
+            
             oto = st.radio("Otopsi Yapıldı mı?", ["Evet", "Hayır"], horizontal=True)
             otopsi = "[X] Evet  [ ] Hayır" if oto == "Evet" else "[ ] Evet  [X] Hayır"
         with col_o2:
@@ -117,14 +149,17 @@ for i in range(1, 6):
         with col_r1: r_tanim = st.text_input(f"Tanım", key=f"rt{i}")
         with col_r2: 
             rb_raw = st.text_input(f"Başlangıç", key=f"rb{i}", placeholder="GünAyYıl")
-            r_bas = tarih_duzelt(rb_raw)
+            r_bas = tarih_kontrol_ve_duzelt(rb_raw)
+            if r_bas == "HATA": st.error("Tarih Hatalı"); r_bas=""
+
         with col_r3: 
             r_devam = st.checkbox("Devam Ediyor", key=f"rd{i}")
             if r_devam:
                 r_bit = "DEVAM EDİYOR"
             else:
                 rbit_raw = st.text_input(f"Bitiş", key=f"rbit{i}", placeholder="GünAyYıl")
-                r_bit = tarih_duzelt(rbit_raw)
+                r_bit = tarih_kontrol_ve_duzelt(rbit_raw)
+                if r_bit == "HATA": st.error("Tarih Hatalı"); r_bit=""
 
         if r_tanim: 
             reaksiyonlar.append({"tanim": r_tanim, "bas": r_bas, "bit": r_bit, "devam": r_devam})
@@ -157,14 +192,17 @@ for i in range(1, 6):
         with c_i4: i_end = st.text_input(f"Endikasyon", key=f"ie{i}")
         with c_i5: 
             ib_raw = st.text_input(f"Başlama", key=f"ib{i}", placeholder="GünAyYıl")
-            i_bas = tarih_duzelt(ib_raw)
+            i_bas = tarih_kontrol_ve_duzelt(ib_raw)
+            if i_bas == "HATA": st.error("Geçersiz Tarih"); i_bas=""
+
         with c_i6: 
             i_devam = st.checkbox("Kullanım Devam Ediyor", key=f"idvm{i}")
             if i_devam:
                 i_bit = "DEVAM EDİYOR"
             else:
                 ibit_raw = st.text_input(f"Kesilme", key=f"ibit{i}", placeholder="GünAyYıl")
-                i_bit = tarih_duzelt(ibit_raw)
+                i_bit = tarih_kontrol_ve_duzelt(ibit_raw)
+                if i_bit == "HATA": st.error("Geçersiz Tarih"); i_bit=""
 
         st.markdown(f":blue[**⬇️ {i}. İlaç Değerlendirme Soruları:**]")
         q7 = st.radio("7. İlaç Kesildi mi?", ["Evet", "Hayır", "Bilinmiyor"], key=f"q7_{i}", horizontal=True)
@@ -188,7 +226,7 @@ tedavi = st.text_area("13. Advers Reaksiyonun Tedavisi", height=68)
 st.header("D. BİLDİRİM YAPAN KİŞİ")
 c_d1, c_d2 = st.columns(2)
 with c_d1:
-    b_ad = st.text_input("1. Adı Soyadı")
+    b_ad = st.text_input("1. Adı Soyadı (Bildirimi Yapan)")
     b_tel = st.text_input("3. Tel No")
     b_faks = st.text_input("5. Faks")
 with c_d2:
@@ -204,15 +242,16 @@ with col_r2:
     rapor_tipi = st.radio("10. Rapor Tipi", ["İlk", "Takip"], horizontal=True, index=None)
 
 rt_raw = st.text_input("9. Rapor Tarihi", value=date.today().strftime("%d.%m.%Y"))
-rapor_tarihi = tarih_duzelt(rt_raw)
+rapor_tarihi = tarih_kontrol_ve_duzelt(rt_raw)
 
 st.markdown("---")
 submitted = st.button("📤 BİLDİRİMİ GÖNDER", type="primary", use_container_width=True)
 
 # --- KAYIT VE MAİL ---
 if submitted:
-    if not ad_soyad or not ilaclar or not reaksiyonlar:
-        st.error("⚠️ Lütfen en az Hasta Adı, Bir Reaksiyon ve Bir İlaç giriniz.")
+    # YENİ KONTROL MEKANİZMASI (Zorunlu Alanlar)
+    if not ad_soyad or not ilaclar or not reaksiyonlar or not b_ad or not b_tel:
+        st.error("⚠️ GÖNDERİM BAŞARISIZ! Lütfen şu alanları doldurduğunuzdan emin olun:\n\n1. Hasta Adı\n2. En az bir Reaksiyon Tanımı\n3. En az bir İlaç Adı\n4. Bildirimi Yapanın Adı Soyadı\n5. Bildirimi Yapanın Telefonu")
     else:
         try:
             with st.spinner("Rapor oluşturuluyor ve mail gönderiliyor..."):
@@ -299,7 +338,6 @@ if submitted:
                     msg['From'] = GONDEREN_EMAIL
                     msg['To'] = ALICI_EMAIL
                     
-                    # DOSYA ADINI TÜRKÇE KARAKTERDEN ARINDIR (HATA ÇÖZÜMÜ)
                     clean_filename = f"Advers_{tr_to_en_filename(ad_soyad)}.docx"
                     
                     msg['Subject'] = f"Advers Raporu - {TR_upper(ad_soyad)}"
@@ -323,6 +361,3 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
-
-
-
