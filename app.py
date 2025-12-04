@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email import encoders
 import re
 
-st.set_page_config(page_title="Advers Bildirim v19", page_icon="🇹🇷", layout="centered")
+st.set_page_config(page_title="Advers Bildirim v20", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
 GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
@@ -17,7 +17,7 @@ ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
-# İstenilen Yeni Uyarı Mesajı
+# İstenilen Uyarı Mesajı
 st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
 # --- YARDIMCI FONKSİYONLAR ---
@@ -212,8 +212,11 @@ with c_d1:
     b_tel = st.text_input("3. Tel No")
     b_faks = st.text_input("5. Faks")
 with c_d2:
-    b_meslek = st.selectbox("2. Meslek", ["Doktor", "Eczacı", "Hemşire", "Diğer"])
-    b_adres = st.text_area("4. Adresi", value="Mersin Üniversitesi Tıp Fakültesi", height=100)
+    # DEĞİŞİKLİK 1: Meslek seçimi Radio butona çevrildi (Yan yana) ve varsayılan boş (index=None)
+    b_meslek = st.radio("2. Meslek", ["Doktor", "Eczacı", "Hemşire", "Diğer"], horizontal=True, index=None)
+    
+    # DEĞİŞİKLİK 2: Adres başlığına 'Bölüm' eklendi
+    b_adres = st.text_area("4. Adres ve Bölüm", value="Mersin Üniversitesi Tıp Fakültesi", height=100)
     b_email = st.text_input("6. E-posta")
 
 st.markdown("---")
@@ -231,7 +234,7 @@ submitted = st.button("📤 BİLDİRİMİ GÖNDER", type="primary", use_containe
 
 # --- KAYIT VE MAİL ---
 if submitted:
-    # --- YENİ EKSİK KONTROL LİSTESİ MANTIĞI ---
+    # --- EKSİK KONTROL LİSTESİ ---
     eksik_alanlar = []
 
     if not ad_soyad:
@@ -244,6 +247,10 @@ if submitted:
         eksik_alanlar.append("Bildirimi Yapan Kişi Adı")
     if not b_tel:
         eksik_alanlar.append("Bildirimi Yapan Telefon No")
+    
+    # Meslek seçimi artık boş gelebildiği için kontrol ekledik
+    if not b_meslek:
+        eksik_alanlar.append("Meslek Seçimi")
 
     # Eksik varsa listele ve dur
     if len(eksik_alanlar) > 0:
