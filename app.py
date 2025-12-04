@@ -12,8 +12,8 @@ import re
 st.set_page_config(page_title="Advers Bildirim v23", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
-GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
-ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
+GONDEREN_EMAIL = "celebicelik@mersin.edu.tr"
+ALICI_EMAIL = "celebicelik@mersin.edu.tr"
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
@@ -434,3 +434,4 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
+
