@@ -55,8 +55,8 @@ def TR_lower(text):
     if text: return text.replace("I", "ı").replace("İ", "i").lower()
     return ""
 
-# --- A. HASTA ve CİDDİYET ---
-st.header("A. HASTA & CİDDİYET")
+# --- A. HASTAYA AİT BİLGİLER ---
+st.header("A. HASTAYA AİT BİLGİLER")
 c1, c2 = st.columns(2)
 with c1:
     ad_soyad = st.text_input("1. Hasta Ad Soyad (Baş Harfler)", placeholder="Örn: A.Y.")
@@ -323,5 +323,6 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
+
 
 
