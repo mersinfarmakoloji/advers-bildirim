@@ -15,9 +15,6 @@ st.set_page_config(page_title="Advers Bildirim v19", page_icon="🇹🇷", layou
 GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"
 ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 
-# Not: GMAIL_PASS şifresini Streamlit Cloud ayarlarından (Secrets) çekmeye devam ediyoruz.
-# Eğer yerel bilgisayarda çalıştıracaksan, secrets.toml dosyasına eklemelisin.
-
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
 # İstenilen Yeni Uyarı Mesajı
@@ -25,7 +22,6 @@ st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reak
 
 # --- YARDIMCI FONKSİYONLAR ---
 def tr_to_en_filename(text):
-    """Dosya ismindeki Türkçe karakterleri İngilizceye çevirir (Mail hatasını önler)"""
     if not text: return "Rapor"
     mapping = {
         'ç': 'c', 'Ç': 'C', 'ğ': 'g', 'Ğ': 'G', 'ı': 'i', 'I': 'I', 'İ': 'I',
@@ -36,30 +32,18 @@ def tr_to_en_filename(text):
     return text
 
 def tarih_kontrol_ve_duzelt(girdi):
-    """Girdiyi alır, geçerli bir tarih mi bakar, formatlar. Geçersizse None döner."""
     if not girdi: return None
-    
     girdi = girdi.strip().lower()
-    
-    # Bugün kontrolü
     if girdi in ["bugün", "bugun", "today"]:
         return date.today().strftime("%d.%m.%Y")
-    
-    # Sadece sayı girildiyse (Örn: 12112025)
     if girdi.isdigit() and len(girdi) == 8:
         girdi = f"{girdi[:2]}.{girdi[2:4]}.{girdi[4:]}"
-    
-    # Ayraçları düzelt
     girdi = girdi.replace("/", ".").replace("-", ".")
-    
-    # GEÇERLİLİK KONTROLÜ (32. gün veya 13. ay var mı?)
     try:
-        # Python'un tarih kütüphanesine "bunu tarih olarak oku" diyoruz.
-        # Eğer tarih mantıksızsa (45.20.2023 gibi) burada hata verir ve 'except'e düşer.
         datetime.strptime(girdi, "%d.%m.%Y")
-        return girdi # Hata yoksa tarihi döndür
+        return girdi 
     except ValueError:
-        return "HATA" # Geçersiz tarih
+        return "HATA" 
 
 def kutu_yap(secim, hedef):
     return "[X]" if secim == hedef else "[ ]"
@@ -83,16 +67,14 @@ c1, c2 = st.columns(2)
 with c1:
     ad_soyad = st.text_input("1. Hasta Ad Soyad (Baş Harfler)", placeholder="Örn: A.Y.")
     
-    # Tarih Girdisi ve Kontrolü
     dogum_tarihi_raw = st.text_input("2. Doğum Tarihi", placeholder="GünAyYıl (Örn: 01011980)")
     dogum_tarihi = tarih_kontrol_ve_duzelt(dogum_tarihi_raw)
     
     yas_str = ""
     if dogum_tarihi == "HATA":
         st.error("❌ Geçersiz Tarih! (Örn: 32. ay olamaz)")
-        dogum_tarihi = "" # Hatalı tarihi rapora yazma
+        dogum_tarihi = "" 
     elif dogum_tarihi:
-        # Tarih geçerliyse ve düzgünse yaşı hesapla
         try:
             dt_obj = datetime.strptime(dogum_tarihi, "%d.%m.%Y")
             bugun = date.today()
@@ -249,9 +231,27 @@ submitted = st.button("📤 BİLDİRİMİ GÖNDER", type="primary", use_containe
 
 # --- KAYIT VE MAİL ---
 if submitted:
-    # YENİ KONTROL MEKANİZMASI (Zorunlu Alanlar)
-    if not ad_soyad or not ilaclar or not reaksiyonlar or not b_ad or not b_tel:
-        st.error("⚠️ GÖNDERİM BAŞARISIZ! Lütfen şu alanları doldurduğunuzdan emin olun:\n\n1. Hasta Adı\n2. En az bir Reaksiyon Tanımı\n3. En az bir İlaç Adı\n4. Bildirimi Yapanın Adı Soyadı\n5. Bildirimi Yapanın Telefonu")
+    # --- YENİ EKSİK KONTROL LİSTESİ MANTIĞI ---
+    eksik_alanlar = []
+
+    if not ad_soyad:
+        eksik_alanlar.append("Hasta Adı Soyadı")
+    if not ilaclar:
+        eksik_alanlar.append("En az bir İlaç Adı")
+    if not reaksiyonlar:
+        eksik_alanlar.append("En az bir Reaksiyon Tanımı")
+    if not b_ad:
+        eksik_alanlar.append("Bildirimi Yapan Kişi Adı")
+    if not b_tel:
+        eksik_alanlar.append("Bildirimi Yapan Telefon No")
+
+    # Eksik varsa listele ve dur
+    if len(eksik_alanlar) > 0:
+        st.error("⚠️ GÖNDERİM BAŞARISIZ! Lütfen aşağıdaki eksik alanları doldurunuz:")
+        for eksik in eksik_alanlar:
+            st.warning(f"❌ {eksik} eksik.")
+    
+    # Eksik yoksa (else) işleme devam et
     else:
         try:
             with st.spinner("Rapor oluşturuluyor ve mail gönderiliyor..."):
@@ -361,4 +361,3 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
-
