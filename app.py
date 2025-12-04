@@ -12,8 +12,8 @@ import re
 st.set_page_config(page_title="Advers Bildirim v18", page_icon="🇹🇷", layout="centered")
 
 # --- AYARLAR ---
-GONDEREN_EMAIL = "mersinfarmakoloji"  # BURAYI KENDİ BOT MAİLİNLE DEĞİŞTİR
-ALICI_EMAIL = "mersinfarmakoloji"           # BURAYI KENDİ MAİLİNLE DEĞİŞTİR
+GONDEREN_EMAIL = "mersinfarmakoloji@gmail.com"  # BURAYI KENDİ BOT MAİLİNLE DEĞİŞTİR
+ALICI_EMAIL = "mersinfarmakoloji@gmail.com"           # BURAYI KENDİ MAİLİNLE DEĞİŞTİR
 
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 st.info("Tarihleri '01012020' veya 'bugün' şeklinde girebilirsiniz.")
@@ -323,4 +323,5 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
+
 
