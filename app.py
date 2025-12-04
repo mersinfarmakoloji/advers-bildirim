@@ -21,7 +21,7 @@ ALICI_EMAIL = "mersinfarmakoloji@gmail.com"
 st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
 
 # İstenilen Yeni Uyarı Mesajı
-st.warning("⚠️ Lütfen formu eksiksiz doldurunuz. Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
+st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
 # --- YARDIMCI FONKSİYONLAR ---
 def tr_to_en_filename(text):
@@ -361,3 +361,4 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
+
