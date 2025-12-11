@@ -15,7 +15,7 @@ st.set_page_config(page_title="Advers Bildirim v23", page_icon="🇹🇷", layou
 GONDEREN_EMAIL = "celebicelik@mersin.edu.tr"
 ALICI_EMAIL = "celebicelik@mersin.edu.tr"
 
-st.title("🇹🇷 T.C. Sağlık Bakanlığı - TÜFAM Bildirimi")
+st.title("Mersin Üniversitesi Hastanesi Advers Etki Bildirim Formu")
 
 st.warning("⚠️ Gönderim için; Hasta Adı, En az bir İlaç, En az bir Reaksiyon, Bildirimi Yapan Doktorun Adı ve Telefon numarası ZORUNLUDUR.")
 
@@ -434,4 +434,5 @@ if submitted:
                 
         except Exception as e:
             st.error(f"Hata: {e}")
+
 
